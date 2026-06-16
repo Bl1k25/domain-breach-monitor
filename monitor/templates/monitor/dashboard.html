@@ -1,0 +1,50 @@
+{% extends 'monitor/base.html' %}
+
+{% block title %}Реестр доменов{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+    <h2 class="mb-4">📊 Реестр корпоративных доменов</h2>
+    
+    {% if domains %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Домен</th>
+                    <th>Ответственный</th>
+                    <th>Критичность</th>
+                    <th>Статус</th>
+                    <th>Добавлен</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for domain in domains %}
+                <tr>
+                    <td><strong>{{ domain.name }}</strong></td>
+                    <td>{{ domain.owner }}</td>
+                    <td>
+                        <span class="badge bg-{% if domain.criticality == 'High' %}danger{% elif domain.criticality == 'Medium' %}warning{% else %}success{% endif %}">
+                            {{ domain.get_criticality_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if domain.is_active %}
+                            <span class="badge bg-success">Активен</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Отключён</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ domain.created_at|date:"d.m.Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        Доменов пока нет. <a href="{% url 'monitor:add_domain' %}" class="alert-link">Добавить первый домен</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
