@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -116,3 +116,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+INTELX_API_KEY = os.getenv("INTELX_API_KEY", "")
+INTELX_API_URL = os.getenv("INTELX_API_URL", "https://free.intelx.io")

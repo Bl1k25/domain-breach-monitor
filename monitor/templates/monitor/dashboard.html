@@ -6,6 +6,15 @@
 <div class="card p-4">
     <h2 class="mb-4">📊 Реестр корпоративных доменов</h2>
     
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+    
     {% if domains %}
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -15,7 +24,8 @@
                     <th>Ответственный</th>
                     <th>Критичность</th>
                     <th>Статус</th>
-                    <th>Добавлен</th>
+                    <th>Последняя проверка</th>
+                    <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,13 +39,31 @@
                         </span>
                     </td>
                     <td>
-                        {% if domain.is_active %}
-                            <span class="badge bg-success">Активен</span>
+                        {% if domain.last_status == 'Critical' %}
+                            <span class="badge bg-danger">🔴 Критично</span>
+                        {% elif domain.last_status == 'Warning' %}
+                            <span class="badge bg-warning text-dark">🟡 Предупреждение</span>
+                        {% elif domain.last_status == 'Clean' %}
+                            <span class="badge bg-success">🟢 Чисто</span>
                         {% else %}
-                            <span class="badge bg-secondary">Отключён</span>
+                            <span class="badge bg-secondary">⚪ Не проверен</span>
                         {% endif %}
                     </td>
-                    <td>{{ domain.created_at|date:"d.m.Y" }}</td>
+                    <td>
+                        {% if domain.last_score %}
+                            <small class="text-muted">{{ domain.last_score }}</small>
+                        {% else %}
+                            <small class="text-muted">—</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'monitor:check_domain' domain.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                🔍 Проверить
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
