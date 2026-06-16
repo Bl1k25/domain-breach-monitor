@@ -5,23 +5,21 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Маппинг типов (добавьте свои, если нужно расширить)
+# Маппинг типов индикаторов
 INTELX_TYPE_MAP = {
-    
     "domain": 2,
     "email": 3,
-    "url": 4
+    "url": 4,
+    "ip": 1  # Добавил для полноты
 }
+
 def _parse_date(date_string):
     """Преобразует ISO 8601 дату в формат YYYY-MM-DD"""
     if not date_string:
         return None
-    
     try:
-        # Если дата в формате ISO 8601 (с временем)
         if "T" in date_string:
             return date_string.split("T")[0]
-        # Если уже в формате YYYY-MM-DD
         return date_string
     except Exception:
         return None
@@ -55,19 +53,19 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
     search_id = None
 
     try:
-        #ЭТАП 1: Инициация поиска 
+        # ЭТАП 1: Инициация поиска 
         search_url = f"{base_url}/intelligent/search"
         search_payload = {
             "term": indicator,
-            "buckets": [],      # Пусто = все доступные бакеты 
-            "lookuplevel": 0,   # Всегда 0 
+            "buckets": [],
+            "lookuplevel": 0,
             "maxresults": 10,
-            "timeout": 0,       # 0 = default 
-            "datefrom": "",     # Пустые строки для полноты схемы 
+            "timeout": 0,
+            "datefrom": "",
             "dateto": "",
-            "sort": 4,          # 4 = Date DESC, самые новые
-            "media": 0,         # 0 = все типы
-            "terminate": []     # Список ID для закрытия старых поисков
+            "sort": 4,
+            "media": 0,
+            "terminate": []
         }
 
         logger.info(f"IntelX: Starting search for {indicator}")
@@ -78,16 +76,14 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
         search_id = search_data.get("id")
         
         if search_data.get("status") != 0 or not search_id:
-            return {"threat_score": 0, "category": "API Error", "last_seen": None, "source": "IntelX", "error": "Search initialization failed"}
+            return {"threat_score": 0, "category": "API Error", "last_seen": None, "source": "IntelX", "error": "Search initialization failed", "records": []}
 
         # ЭТАП 2: Получение результатов в цикле 
-        # Документация требует ждать минимум 400ms и проверять статус
         result_url = f"{base_url}/intelligent/search/result"
         records = []
         
-        # Делаем до 5 попыток опроса, если статус 3 (результаты еще готовятся)
         for attempt in range(5):
-            time.sleep(1.0) # Спим 1 сек между попытками
+            time.sleep(1.0)
             
             result_params = {"id": search_id, "limit": 10}
             result_resp = requests.get(result_url, headers=headers, params=result_params, timeout=10)
@@ -98,14 +94,11 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
             records = result_data.get("records", [])
 
             if status in [0, 1]: 
-                # 0 = Успех с данными, 1 = Поиск завершен
                 break
             elif status == 3:
-                # 3 = "No results yet available but keep trying" 
                 logger.info(f"IntelX: Search {search_id} in progress (attempt {attempt+1})...")
                 continue
             elif status == 2:
-                # 2 = Search ID not found
                 break
 
         # ЭТАП 3: Терминация поиска 
@@ -116,39 +109,54 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
             except Exception as e:
                 logger.warning(f"IntelX: Failed to terminate search {search_id}: {e}")
 
-        #ЭТАП 4: Обработка данных 
+        # ЭТАП 4: Обработка данных 
         if not records:
             return {
                 "threat_score": 0, "category": "No Threats",
-                "last_seen": None, "source": "IntelX", "error": None
+                "last_seen": None, "source": "IntelX", "error": None, "records": []
             }
 
-        # Берем самый свежий результат
-        latest = records[0]
-        
-        # Маппинг медиа-типов
+        # 🆕 Формируем список threat_details из записей API
+        threat_details = []
         media_map = {
-            1: "Paste", 9: "Web Copy", 13: "Tweet", 14: "URL", 15: "PDF",
-            16: "Word", 21: "Video", 23: "HTML", 24: "Text"
+            1: "Paste", 2: "Paste User", 3: "Forum", 4: "Forum Board",
+            5: "Forum Thread", 6: "Forum Post", 7: "Forum User",
+            8: "Screenshot", 9: "Web Copy", 13: "Tweet", 14: "URL",
+            15: "PDF", 16: "Word", 17: "Excel", 18: "PowerPoint",
+            19: "Picture", 20: "Audio", 21: "Video", 22: "Container",
+            23: "HTML", 24: "Text"
         }
+        
+        for record in records[:10]:  # Берём топ-10
+            threat_details.append({
+                "system_id": record.get("systemid", ""),
+                "storage_id": record.get("storageid", ""),
+                "name": record.get("name", ""),
+                "xscore": record.get("xscore", 0),
+                "bucket": record.get("bucket", ""),
+                "media_type_human": media_map.get(record.get("media"), "Unknown"),
+                "size": record.get("size", 0),
+                "date_found": record.get("date") or record.get("added"),
+            })
+
+        latest = records[0]
         media_type = media_map.get(latest.get("media"), "Document")
         bucket = latest.get("bucket", "leak")
         
+        # ✅ ВОЗВРАЩАЕМ С threat_details
         return {
-            "threat_score": latest.get("xscore", 0), 
+            "threat_score": latest.get("xscore", 0),
             "category": f"{media_type} ({bucket})",
             "last_seen": _parse_date(latest.get("date")) or _parse_date(latest.get("added")),
             "source": "IntelX",
             "error": None,
-            "system_id": latest.get("systemid") # Для построения прямой ссылки 
+            "records": threat_details  # ← Теперь эта переменная определена!
         }
 
-    # Обработка исключений
     except requests.Timeout:
-        return {"threat_score": 0, "category": "Timeout", "last_seen": None, "source": "IntelX", "error": "Timeout"}
+        return {"threat_score": 0, "category": "Timeout", "last_seen": None, "source": "IntelX", "error": "Timeout", "records": []}
     except requests.HTTPError as exc:
-        # Обработка 401 (нет прав), 402 (нет кредитов)
-        return {"threat_score": 0, "category": "HTTP Error", "last_seen": None, "source": "IntelX", "error": f"Status {exc.response.status_code}"}
+        return {"threat_score": 0, "category": "HTTP Error", "last_seen": None, "source": "IntelX", "error": f"Status {exc.response.status_code}", "records": []}
     except Exception as exc:
         logger.error(f"IntelX API Error: {exc}")
-        return {"threat_score": 0, "category": "Error", "last_seen": None, "source": "IntelX", "error": str(exc)}
+        return {"threat_score": 0, "category": "Error", "last_seen": None, "source": "IntelX", "error": str(exc), "records": []}

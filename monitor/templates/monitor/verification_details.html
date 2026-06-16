@@ -1,0 +1,86 @@
+{% extends 'monitor/base.html' %}
+
+{% block title %}Угрозы: {{ domain.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'monitor:dashboard' %}">Реестр</a></li>
+            <li class="breadcrumb-item active">Проверка {{ verification.checked_at|date:"d.m.Y" }}</li>
+        </ol>
+    </nav>
+
+    <!-- Заголовок -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">🔍 Результаты проверки: {{ domain.name }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Дата проверки:</strong> {{ verification.checked_at|date:"d.m.Y H:i" }}</p>
+                    <p class="mb-1"><strong>Статус:</strong> 
+                        <span class="badge bg-{% if verification.status == 'Critical' %}danger{% elif verification.status == 'Warning' %}warning{% else %}success{% endif %}">
+                            {{ verification.get_status_display }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-1"><strong>Найдено записей:</strong> {{ threats.count }}</p>
+                    <p class="mb-0"><strong>Комментарий:</strong> {{ verification.risk_comment|default:"—" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Список угроз -->
+    {% if threats %}
+    <div class="list-group mb-4">
+        {% for threat in threats %}
+        <a href="{% url 'monitor:threat_detail' threat.id %}" 
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="mb-1">
+                    {% if threat.media_type == "Paste" %}📄
+                    {% elif threat.media_type == "URL" %}🔗
+                    {% elif "Web" in threat.media_type %}🌐
+                    {% else %}📎{% endif %}
+                    {{ threat.name|default:"Без названия" }}
+                </h6>
+                <small class="text-muted">
+                    {{ threat.bucket }} • {{ threat.media_type }} • {{ threat.date_found|date:"d.m.Y" }}
+                </small>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-{% if threat.xscore > 70 %}danger{% elif threat.xscore > 30 %}warning{% else %}secondary{% endif %} fs-6">
+                    {{ threat.xscore }}
+                </span>
+                {% if threat.is_high_risk %}
+                <div class="text-danger small mt-1">⚠️</div>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-success text-center">
+        ✅ Угроз не найдено — домен чист!
+    </div>
+{% endif %}
+
+    <!-- Кнопки навигации -->
+    <div>
+        <a href="{% url 'monitor:dashboard' %}" class="btn btn-secondary">
+            ← Назад к реестру
+        </a>
+        <form method="post" action="{% url 'monitor:check_domain' domain.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                🔍 Проверить заново
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

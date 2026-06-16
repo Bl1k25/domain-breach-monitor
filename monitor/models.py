@@ -1,7 +1,8 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.utils import timezone
-
+from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class CorporateDomain(models.Model):
     """Реестр корпоративных доменов компании"""
@@ -141,3 +142,92 @@ class VerificationLog(models.Model):
             f"{self.status} - "
             f"{self.checked_at.strftime('%d.%m.%Y %H:%M')}"
         )
+    
+class ThreatDetail(models.Model):
+    
+    verification = models.ForeignKey(
+        VerificationLog,
+        on_delete=models.CASCADE,
+        related_name='threats',
+        help_text="Связанная проверка"
+    )
+    
+    # Идентификаторы 
+    system_id = models.CharField(
+        max_length=100,
+        help_text="System ID для формирования ссылки"
+    )
+    storage_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="ID для доступа к содержимому файла через /file/read"
+    )
+
+    # Основная информация 
+    name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Название или заголовок записи"
+    )
+    xscore = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Релевантность (0-100). Показывает вероятность реальной угрозы"
+    )
+    bucket = models.CharField(
+        max_length=100,
+        help_text="Тип базы (например, pastes, darknet.tor, leaks.public)"
+    )
+    
+    # Типы данных 
+    media_type = models.CharField(
+        max_length=50,
+        help_text="Человекочитаемый тип контента (Paste, PDF, и т.д.)"
+    )
+    size = models.PositiveIntegerField(
+        default=0,
+        help_text="Размер данных в байтах"
+    )
+
+    # Даты 
+    date_found = models.DateTimeField(
+        help_text="Дата оригинальной записи или индексации"
+    )
+    
+    discovered_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Когда наша система нашла эту запись"
+    )
+
+    class Meta:
+        verbose_name = "Деталь угрозы IntelX"
+        verbose_name_plural = "Детали угроз IntelX"
+        ordering = ['-xscore', '-date_found']
+        indexes = [
+            models.Index(fields=['-xscore']),
+            models.Index(fields=['bucket']),
+        ]
+
+    def __str__(self):
+        return f"{self.bucket} | {self.media_type} (Score: {self.xscore})"
+
+    @property
+    def intelx_url(self):
+        """Генерирует прямую ссылку на результат"""
+        return f"https://intelx.io/?did={self.system_id}"
+    
+    @property
+    def size_human(self):
+        """Возвращает размер в человекочитаемом формате"""
+        if self.size < 1024:
+            return f"{self.size} B"
+        elif self.size < 1024 * 1024:
+            return f"{self.size / 1024:.1f} KB"
+        elif self.size < 1024 * 1024 * 1024:
+            return f"{self.size / (1024 * 1024):.1f} MB"
+        else:
+            return f"{self.size / (1024 * 1024 * 1024):.1f} GB"
+    
+    @property
+    def is_high_risk(self):
+        """Быстрая проверка: является ли запись высокорисковой"""
+        return self.xscore > 70

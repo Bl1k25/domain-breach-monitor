@@ -1,0 +1,143 @@
+{% extends 'monitor/base.html' %}
+
+{% block title %}Детали угрозы: {{ threat.name|default:threat.system_id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'monitor:dashboard' %}">Реестр</a></li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'monitor:verification_details' threat.verification.id %}">
+                    Проверка {{ threat.verification.checked_at|date:"d.m.Y" }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active">Детали</li>
+        </ol>
+    </nav>
+
+    <!-- Заголовок с риском -->
+    <div class="card mb-4 border-{% if threat.xscore > 70 %}danger{% elif threat.xscore > 30 %}warning{% else %}success{% endif %}">
+        <div class="card-header bg-{% if threat.xscore > 70 %}danger{% elif threat.xscore > 30 %}warning{% else %}success{% endif %} text-white">
+            <h2 class="mb-0">
+                {% if threat.xscore > 70 %}🔴{% elif threat.xscore > 30 %}🟡{% else %}🟢{% endif %}
+                Детальная информация из IntelX
+            </h2>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="mb-1">{{ threat.name|default:"Без названия" }}</h4>
+                    <p class="text-muted mb-0">{{ threat.media_type }} • {{ threat.bucket }}</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="badge bg-{% if threat.xscore > 70 %}danger{% elif threat.xscore > 30 %}warning{% else %}secondary{% endif %} fs-4">
+                        Score: {{ threat.xscore }}/100
+                    </span>
+                    {% if threat.is_high_risk %}
+                    <div class="text-danger small mt-1">⚠️ Высокий риск</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основная информация -->
+    <div class="row">
+        <!-- Левая колонка -->
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📋 Идентификаторы</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">System ID:</th>
+                            <td><code class="small">{{ threat.system_id }}</code></td>
+                        </tr>
+                        {% if threat.storage_id %}
+                        <tr>
+                            <th>Storage ID:</th>
+                            <td><code class="small">{{ threat.storage_id|truncatechars:60 }}</code></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📅 Даты</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Оригинальная дата:</th>
+                            <td>{{ threat.date_found|date:"d.m.Y H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Обнаружено нами:</th>
+                            <td>{{ threat.discovered_at|date:"d.m.Y H:i:s" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Правая колонка -->
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">🏷️ Типы данных</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Media Type:</th>
+                            <td><span class="badge bg-secondary">{{ threat.media_type }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Bucket:</th>
+                            <td><code>{{ threat.bucket }}</code></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">📦 Размер</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Размер:</th>
+                            <td>{{ threat.size_human }} <small class="text-muted">({{ threat.size }} bytes)</small></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ссылки -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">🔗 Внешние ссылки</h5>
+        </div>
+        <div class="card-body">
+            <a href="{{ threat.intelx_url }}" target="_blank" class="btn btn-primary">
+                🌐 Открыть на IntelX.io
+            </a>
+            <a href="{% url 'monitor:verification_details' threat.verification.id %}" class="btn btn-secondary ms-2">
+                ← Все угрозы этой проверки
+            </a>
+            <a href="{% url 'monitor:dashboard' %}" class="btn btn-outline-secondary ms-2">
+                🏠 На главную
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -33,11 +33,13 @@
                 <tr>
                     <td><strong>{{ domain.name }}</strong></td>
                     <td>{{ domain.owner }}</td>
+
                     <td>
                         <span class="badge bg-{% if domain.criticality == 'High' %}danger{% elif domain.criticality == 'Medium' %}warning{% else %}success{% endif %}">
                             {{ domain.get_criticality_display }}
                         </span>
                     </td>
+
                     <td>
                         {% if domain.last_status == 'Critical' %}
                             <span class="badge bg-danger">🔴 Критично</span>
@@ -49,6 +51,7 @@
                             <span class="badge bg-secondary">⚪ Не проверен</span>
                         {% endif %}
                     </td>
+
                     <td>
                         {% if domain.last_score %}
                             <small class="text-muted">{{ domain.last_score }}</small>
@@ -56,22 +59,46 @@
                             <small class="text-muted">—</small>
                         {% endif %}
                     </td>
+
                     <td>
-                        <form method="post" action="{% url 'monitor:check_domain' domain.id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                🔍 Проверить
-                            </button>
-                        </form>
+                        <div class="btn-group" role="group">
+
+                            <!-- Проверка через IntelX -->
+                            <form method="post"
+                                  action="{% url 'monitor:check_domain' domain.id %}"
+                                  style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-primary"
+                                        title="Проверить через IntelX">
+                                    🔍
+                                </button>
+                            </form>
+
+                            <!-- Просмотр результатов последней проверки -->
+                            {% if domain.last_verification_id %}
+                            <a href="{% url 'monitor:verification_details' domain.last_verification_id %}"
+                               class="btn btn-sm btn-outline-info"
+                               title="Посмотреть результаты">
+                                📋
+                            </a>
+                            {% endif %}
+
+                        </div>
                     </td>
+
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
     {% else %}
     <div class="alert alert-info text-center">
-        Доменов пока нет. <a href="{% url 'monitor:add_domain' %}" class="alert-link">Добавить первый домен</a>
+        Доменов пока нет.
+        <a href="{% url 'monitor:add_domain' %}" class="alert-link">
+            Добавить первый домен
+        </a>
     </div>
     {% endif %}
 </div>
