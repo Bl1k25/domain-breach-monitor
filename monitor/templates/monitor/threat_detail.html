@@ -35,9 +35,6 @@
                     <span class="badge bg-{% if threat.xscore > 70 %}danger{% elif threat.xscore > 30 %}warning{% else %}secondary{% endif %} fs-4">
                         Score: {{ threat.xscore }}/100
                     </span>
-                    {% if threat.is_high_risk %}
-                    <div class="text-danger small mt-1">⚠️ Высокий риск</div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -122,15 +119,23 @@
         </div>
     </div>
 
-    <!-- Ссылки -->
+    <!-- Ссылки и действия -->
     <div class="card mb-4">
         <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">🔗 Внешние ссылки</h5>
+            <h5 class="mb-0">🔗 Внешние ссылки и действия</h5>
         </div>
         <div class="card-body">
             <a href="{{ threat.intelx_url }}" target="_blank" class="btn btn-primary">
                 🌐 Открыть на IntelX.io
             </a>
+            
+            <!-- Кнопка вызова модального окна (Добавлена сюда) -->
+            {% if threat.storage_id %}
+            <button type="button" class="btn btn-warning ms-2" onclick="showContent('{{ threat.id }}')">
+                👁 Показать фрагмент содержимого
+            </button>
+            {% endif %}
+
             <a href="{% url 'monitor:verification_details' threat.verification.id %}" class="btn btn-secondary ms-2">
                 ← Все угрозы этой проверки
             </a>
@@ -140,4 +145,83 @@
         </div>
     </div>
 </div>
+
+<!-- Модальное окно (Добавлено в конец) -->
+<div class="modal fade" id="contentModal" tabindex="-1" aria-labelledby="contentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="contentModalLabel">️ Предварительный просмотр данных</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger fw-bold mb-3">Обнаружен фрагмент данных из архива утечки (пароли, логи или иная информация).</p>
+                <pre id="previewText" 
+                     class="border p-3 bg-light font-monospace" 
+                     style="min-height: 300px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;">
+                Загрузка...
+                </pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрипт обработки (Добавлен в блок скриптов) -->
+<script>
+function showContent(threatId) {
+    console.log("showContent вызвана! ID:", threatId);
+    
+    const previewArea = document.getElementById('previewText');
+    if (!previewArea) {
+        console.error("Элемент previewText не найден!");
+        return;
+    }
+    
+    previewArea.textContent = 'Подключаемся к архиву IntelX...';
+    
+    // Инициализация модалки Bootstrap
+    const modalElement = document.getElementById('contentModal');
+    if (typeof bootstrap === 'undefined') {
+        console.error(" Bootstrap JS не загружен!");
+        previewArea.textContent = "Ошибка: Bootstrap не подключён";
+        return;
+    }
+    
+    const myModal = new bootstrap.Modal(modalElement);
+    myModal.show();
+    console.log("Модалка открыта");
+
+    // Запрос к серверу
+    const url = `/threat-content/${threatId}/`;
+    console.log("Fetch URL:", url);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log("Статус ответа:", response.status);
+        if (!response.ok) throw new Error('Ошибка доступа к серверу: ' + response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log("Данные получены:", data);
+        if (data.error) {
+            previewArea.textContent = "Ошибка: " + data.error;
+        } else {
+            previewArea.textContent = data.content;
+        }
+    })
+    .catch(error => {
+        console.error("Ошибка fetch:", error);
+        previewArea.textContent = "Не удалось загрузить: " + error.message;
+    });
+}
+</script>
 {% endblock %}

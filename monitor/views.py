@@ -2,11 +2,15 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.http import JsonResponse
 from .models import CorporateDomain, BreachRecord, VerificationLog, ThreatDetail
 from .forms import CorporateDomainForm
 from .api_clients import query_intelx
+from .api_clients import query_intelx, get_file_preview
 import datetime
+import logging
 
+logger = logging.getLogger(__name__)
 
 def dashboard(request):
     """Главная страница: список доменов с последними проверками"""
@@ -103,6 +107,32 @@ def check_domain_intelx(request, domain_id):
     
     return redirect("monitor:dashboard")
 
+from django.http import JsonResponse
+
+def threat_content_view(request, threat_id):
+    if request.method != 'POST':
+        return JsonResponse({"error": "Метод не поддерживается"}, status=405)
+
+    threat = get_object_or_404(ThreatDetail, id=threat_id)
+    
+    if not threat.storage_id:
+        return JsonResponse({"error": "Нет доступного файла"})
+
+    result = get_file_preview(
+        storage_id=threat.storage_id,
+        bucket=threat.bucket,
+        media_type=24,      # Text file
+        content_type=1      # Plain text
+    )
+
+    if result["success"]:
+        preview_text = result["content"][:800]
+        from django.utils.html import escape
+        safe_text = escape(preview_text)
+        
+        return JsonResponse({"content": safe_text})
+    else:
+        return JsonResponse({"error": result["error"]}, status=400)
 
 def threat_detail_view(request, threat_id):
     """Детальная страница с ВСЕЙ информацией из IntelX"""

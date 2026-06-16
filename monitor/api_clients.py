@@ -126,7 +126,7 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
             19: "Picture", 20: "Audio", 21: "Video", 22: "Container",
             23: "HTML", 24: "Text"
         }
-        
+    
         for record in records[:10]:  # Берём топ-10
             threat_details.append({
                 "system_id": record.get("systemid", ""),
@@ -160,3 +160,58 @@ def query_intelx(indicator: str, indicator_type: str = "domain") -> dict:
     except Exception as exc:
         logger.error(f"IntelX API Error: {exc}")
         return {"threat_score": 0, "category": "Error", "last_seen": None, "source": "IntelX", "error": str(exc), "records": []}
+def get_file_preview(storage_id: str, bucket: str, media_type: int = 24, content_type: int = 1) -> dict:
+    if not storage_id or not bucket:
+        return {"success": False, "error": "Отсутствует storage_id или bucket"}
+
+    api_key = getattr(settings, "INTELX_API_KEY", None)
+    base_url = getattr(settings, "INTELX_API_URL", "https://free.intelx.io").rstrip('/')
+
+    headers = {
+        "x-key": api_key,
+        "User-Agent": "DomainBreachMonitor/1.1",
+        "Accept": "text/plain; charset=utf-8" 
+    }
+
+    url = f"{base_url}/file/preview"
+    params = {
+        "sid": storage_id,
+        "b": bucket,
+        "c": content_type,
+        "m": media_type,
+        "f": 0,      # 0 = text output
+        "e": 0,      # 0 = ОТКЛЮЧИТЬ HTML-escaping
+        "l": 50      # Максимум строк
+    }
+
+    logger.info(f"IntelX Preview: {url} | params={params}")
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        
+        if resp.status_code == 401:
+            return {"success": False, "error": "Нет доступа (401)"}
+        elif resp.status_code == 404:
+            return {"success": False, "error": "Файл не найден (404)"}
+        elif resp.status_code == 402:
+            return {"success": False, "error": "Лимит исчерпан (402)"}
+        
+        resp.raise_for_status()
+        
+        try:
+            # Пробуем UTF-8
+            text_content = resp.text
+        except UnicodeDecodeError:
+            try:
+                text_content = resp.content.decode('cp1251') 
+            except:
+                text_content = resp.content.decode('latin-1')  
+        
+        return {"success": True, "content": text_content}
+
+    except requests.HTTPError as e:
+        logger.error(f"IntelX HTTP Error: {e}")
+        return {"success": False, "error": f"Ошибка {resp.status_code}"}
+    except Exception as e:
+        logger.error(f"IntelX Exception: {e}")
+        return {"success": False, "error": str(e)}
