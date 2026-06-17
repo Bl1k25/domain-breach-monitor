@@ -1,17 +1,65 @@
 html
 {% extends 'monitor/base.html' %}
 
-{% block title %}Реестр доменов{% endblock %}
+{% block title %}Dashboard — Мониторинг угроз{% endblock %}
 
 {% block content %}
-<div class="card p-4">
-    <h2 class="mb-4">📊 Реестр корпоративных доменов</h2>
+
+<!--БЛОК АНАЛИТИКИ-->
+<div class="row mb-4">
+    <!-- График 1: Распределение по бакетам (источникам) -->
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white"><strong>📦 Распределение по источникам (Buckets)</strong></div>
+            <div class="card-body d-flex justify-content-center align-items-center">
+                {{ bucket_chart|safe }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- График 2: Распределение X-Score (релевантность/риск) -->
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white"><strong>🎯 Распределение X-Score</strong></div>
+            <div class="card-body d-flex justify-content-center align-items-center">
+                {{ score_chart|safe }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- График 3: Временная шкала событий -->
+    <div class="col-12 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><strong>📈 Хронология обнаруженных данных</strong></div>
+            <div class="card-body">
+                {{ timeline_chart|safe }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- График 4: Матрица рисков -->
+    <div class="col-12 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><strong>⚠️ Матрица рисков и критичности</strong></div>
+            <div class="card-body">
+                {{ risk_matrix|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ТАБЛИЦА ДОМЕНОВ -->
+<div class="card p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">📊 Реестр корпоративных доменов</h2>
+        <a href="{% url 'monitor:add_domain' %}" class="btn btn-success btn-sm">➕ Добавить домен</a>
+    </div>
     
     {% if messages %}
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
             {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-alert="dismiss"></button>
         </div>
         {% endfor %}
     {% endif %}
@@ -34,13 +82,11 @@ html
                 <tr>
                     <td><strong>{{ domain.name }}</strong></td>
                     <td>{{ domain.owner }}</td>
-
                     <td>
                         <span class="badge bg-{% if domain.criticality == 'High' %}danger{% elif domain.criticality == 'Medium' %}warning{% else %}success{% endif %}">
                             {{ domain.get_criticality_display }}
                         </span>
                     </td>
-
                     <td>
                         {% if domain.last_status == 'Critical' %}
                             <span class="badge bg-danger">🔴 Критично</span>
@@ -52,7 +98,6 @@ html
                             <span class="badge bg-secondary">⚪ Не проверен</span>
                         {% endif %}
                     </td>
-
                     <td>
                         {% if domain.last_score %}
                             <small class="text-muted">{{ domain.last_score }}</small>
@@ -60,8 +105,6 @@ html
                             <small class="text-muted">—</small>
                         {% endif %}
                     </td>
-
-                    <!-- Обновленная колонка Действия -->
                     <td>
                         <div class="btn-group" role="group">
                             <!-- Кнопка проверки через IntelX -->
@@ -80,7 +123,7 @@ html
                             </a>
                             {% endif %}
 
-                            <!--  Кнопка удаления с подтверждением -->
+                            <!-- Кнопка удаления -->
                             <form method="post" action="{% url 'monitor:delete_domain' domain.id %}" 
                                   style="display:inline;" 
                                   onsubmit="return confirm('Вы уверены, что хотите удалить домен {{ domain.name }} и все связанные отчёты?');">
@@ -91,19 +134,14 @@ html
                             </form>
                         </div>
                     </td>
-
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-
     {% else %}
-    <div class="alert alert-info text-center">
-        Доменов пока нет.
-        <a href="{% url 'monitor:add_domain' %}" class="alert-link">
-            Добавить первый домен
-        </a>
+    <div class="alert alert-info text-center mt-3">
+        Доменов пока нет. <a href="{% url 'monitor:add_domain' %}" class="alert-link">Добавить первый домен</a>
     </div>
     {% endif %}
 </div>
