@@ -1,3 +1,4 @@
+html
 {% extends 'monitor/base.html' %}
 
 {% block title %}Реестр доменов{% endblock %}
@@ -60,30 +61,34 @@
                         {% endif %}
                     </td>
 
+                    <!-- Обновленная колонка Действия -->
                     <td>
                         <div class="btn-group" role="group">
-
-                            <!-- Проверка через IntelX -->
-                            <form method="post"
-                                  action="{% url 'monitor:check_domain' domain.id %}"
-                                  style="display:inline;">
+                            <!-- Кнопка проверки через IntelX -->
+                            <form method="post" action="{% url 'monitor:check_domain' domain.id %}" style="display:inline;">
                                 {% csrf_token %}
-                                <button type="submit"
-                                        class="btn btn-sm btn-outline-primary"
-                                        title="Проверить через IntelX">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Проверить через IntelX">
                                     🔍
                                 </button>
                             </form>
-
-                            <!-- Просмотр результатов последней проверки -->
+                            
+                            <!-- Кнопка результатов последней проверки -->
                             {% if domain.last_verification_id %}
-                            <a href="{% url 'monitor:verification_details' domain.last_verification_id %}"
-                               class="btn btn-sm btn-outline-info"
-                               title="Посмотреть результаты">
+                            <a href="{% url 'monitor:verification_details' domain.last_verification_id %}" 
+                               class="btn btn-sm btn-outline-info" title="Посмотреть результаты">
                                 📋
                             </a>
                             {% endif %}
 
+                            <!--  Кнопка удаления с подтверждением -->
+                            <form method="post" action="{% url 'monitor:delete_domain' domain.id %}" 
+                                  style="display:inline;" 
+                                  onsubmit="return confirm('Вы уверены, что хотите удалить домен {{ domain.name }} и все связанные отчёты?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить домен">
+                                    🗑️
+                                </button>
+                            </form>
                         </div>
                     </td>
 

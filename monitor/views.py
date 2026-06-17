@@ -159,3 +159,16 @@ def verification_details_view(request, verification_id):
     }
     
     return render(request, 'monitor/verification_details.html', context)
+
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect
+
+def delete_domain(request, domain_id):
+    """Удаляет домен и все связанные данные (отчёты, проверки, угрозы)"""
+    if request.method == 'POST':
+        domain = get_object_or_404(CorporateDomain, id=domain_id)
+        domain_name = domain.name
+        domain.delete()  # CASCADE автоматически удалит BreachRecord, VerificationLog, ThreatDetail
+        messages.success(request, f'Домен {domain_name} и все связанные данные успешно удалены.')
+    
+    return redirect('monitor:dashboard')

@@ -12,4 +12,5 @@ urlpatterns = [
     path('verification/<int:verification_id>/', views.verification_details_view, name='verification_details'),
     path('threat/<int:threat_id>/', views.threat_detail_view, name='threat_detail'),
     path('threat-content/<int:threat_id>/', views.threat_content_view, name='threat_content'),
+    path('delete/<int:domain_id>/', views.delete_domain, name='delete_domain'),
 ]
