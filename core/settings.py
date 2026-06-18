@@ -1,4 +1,3 @@
-python
 """
 Django settings for core project.
 """
@@ -13,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-l1rv)r&$z411!4_kted+u(-@-b$@ttxx)7y9vlfie29-$o07uf'
 
-DEBUG = True
+DEBUG = False
 
 #Настройка ALLOWED_HOSTS (Разрешенные хосты)
 # '*' позволяет запускать на любом хосте
